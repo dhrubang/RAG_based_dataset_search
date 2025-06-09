@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataFinder AI Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="chat-container">
+        <h1><i class="fas fa-database" style="color: #4CAF50; margin-right: 10px;"></i>DataFinder AI Assistant</h1>
+        <div class="chat-box" id="chatBox">
+            <!-- Chat messages will appear here -->
+        </div>
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Ask about datasets (e.g., 'Find datasets about social media trends')">
+            <button id="sendBtn"><i class="fas fa-paper-plane"></i> Send</button>
+            <button id="newChatBtn"><i class="fas fa-comment-slash"></i> New Chat</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatBox = document.getElementById('chatBox');
+            const userInput = document.getElementById('userInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const newChatBtn = document.getElementById('newChatBtn');
+            
+            function formatResponse(text) {
+                // Convert markdown-like formatting to HTML
+                text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                text = text.replace(/^#\s(.*$)/gm, '<h2>$1</h2>');
+                text = text.replace(/^##\s(.*$)/gm, '<h3>$1</h3>');
+                text = text.replace(/`(.*?)`/g, '<code>$1</code>');
+                text = text.replace(/^\>\s(.*$)/gm, '<blockquote>$1</blockquote>');
+                
+                // Handle lists
+                text = text.replace(/^\-\s(.*$)/gm, '<li>$1</li>');
+                text = text.replace(/^(\<li\>.*\<\/li\>)+$/gm, '<ul>$&</ul>');
+                
+                // Handle line breaks
+                text = text.replace(/\n\n/g, '<br><br>');
+                
+                return text;
+            }
+            
+            function addMessage(role, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}`;
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                contentDiv.innerHTML = formatResponse(content);
+                
+                messageDiv.appendChild(contentDiv);
+                chatBox.appendChild(messageDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+            
+            function showTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'message assistant typing-indicator';
+                typingDiv.id = 'typingIndicator';
+                typingDiv.innerHTML = '<span></span><span></span><span></span>';
+                chatBox.appendChild(typingDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+            
+            function hideTypingIndicator() {
+                const indicator = document.getElementById('typingIndicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+            
+            function sendMessage() {
+                const message = userInput.value.trim();
+                if (!message) return;
+                
+                addMessage('user', message);
+                userInput.value = '';
+                showTypingIndicator();
+                
+                fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: message,
+                        new_chat: false
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideTypingIndicator();
+                    addMessage('assistant', data.response);
+                })
+                .catch(error => {
+                    hideTypingIndicator();
+                    console.error('Error:', error);
+                    addMessage('assistant', 'Sorry, there was an error processing your request.');
+                });
+            }
+            
+            function startNewChat() {
+                chatBox.innerHTML = '';
+                fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: '',
+                        new_chat: true
+                    })
+                });
+                addMessage('assistant', 'Hello! I can help you discover and analyze datasets. What kind of data are you interested in?');
+            }
+            
+            sendBtn.addEventListener('click', sendMessage);
+            newChatBtn.addEventListener('click', startNewChat);
+            
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            // Initial greeting
+            addMessage('assistant', 'Hello! I can help you discover and analyze datasets. What kind of data are you interested in? Examples:\n\n- "Find datasets about climate change"\n- "Show me healthcare datasets"\n- "I need data about e-commerce trends"');
+        });
+    </script>
+</body>
+</html>
