@@ -141,7 +141,16 @@ def chat():
         # Store in temporary file
         with open(TEMP_FILE, 'w') as f:
             f.write(f"Initial dataset query: {user_query}\nAssistant: {response}\n")
-    
+
+        # Keep only last 3000 characters
+        with open(TEMP_FILE, 'r+') as f:
+            content = f.read()
+            if len(content) > 3000:
+                f.seek(0)
+                f.write(content[-3000:])
+                f.truncate()
+
+
     return jsonify({'response': response})
 
 if __name__ == '__main__':
